@@ -6,6 +6,15 @@ from flask_jwt_extended import create_access_token
 
 auth_bp = Blueprint('auth', __name__)
 
+@auth_bp.route('/', methods=['GET'])
+def health_check():
+    """Simple health check endpoint"""
+    return jsonify({
+        'success': True, 
+        'message': 'API Konsultasi is running',
+        'status': 'healthy'
+    })
+
 @auth_bp.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
