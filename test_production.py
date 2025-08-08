@@ -3,11 +3,11 @@
 Production API Test Script
 Run this script to test your deployed API endpoints
 """
-
-import requests
 import json
 import sys
 from datetime import datetime
+
+import requests
 
 
 class APITester:
