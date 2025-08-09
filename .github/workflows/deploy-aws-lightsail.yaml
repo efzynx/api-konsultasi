@@ -90,7 +90,7 @@ jobs:
         if [ "$ENVIRONMENT" = "production" ]; then
           cat > .env << ENVEOF
         SECRET_KEY=${{ secrets.PROD_SECRET_KEY }}
-        DATABASE_URL=${{ secrets.PROD_DATABASE_URL }}
+        DATABASE_URL=mysql+pymysql://${{ secrets.PROD_MYSQL_USER }}:${{ secrets.PROD_MYSQL_PASSWORD }}@db:3306/${{ secrets.PROD_MYSQL_DATABASE }}
         JWT_SECRET_KEY=${{ secrets.PROD_JWT_SECRET_KEY }}
         MYSQL_ROOT_PASSWORD=${{ secrets.PROD_MYSQL_ROOT_PASSWORD }}
         MYSQL_DATABASE=${{ secrets.PROD_MYSQL_DATABASE }}
@@ -101,7 +101,7 @@ jobs:
         else
           cat > .env << ENVEOF
         SECRET_KEY=${{ secrets.DEV_SECRET_KEY }}
-        DATABASE_URL=${{ secrets.DEV_DATABASE_URL }}
+        DATABASE_URL=mysql+pymysql://${{ secrets.DEV_MYSQL_USER }}:${{ secrets.DEV_MYSQL_PASSWORD }}@db:3306/${{ secrets.DEV_MYSQL_DATABASE }}
         JWT_SECRET_KEY=${{ secrets.DEV_JWT_SECRET_KEY }}
         MYSQL_ROOT_PASSWORD=${{ secrets.DEV_MYSQL_ROOT_PASSWORD }}
         MYSQL_DATABASE=${{ secrets.DEV_MYSQL_DATABASE }}
