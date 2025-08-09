@@ -1,0 +1,16 @@
+# Docker Compose override for development
+# This file allows you to customize the docker-compose.yaml for local development
+# without modifying the main compose file
+
+version: '3.8'
+
+services:
+  server:
+    ports:
+      - "5001:5000"  # Use port 5001 locally to avoid conflicts
+    environment:
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+    volumes:
+      - .:/app  # Mount current directory for live code reloading
+    command: python run.py

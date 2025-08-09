@@ -8,3 +8,20 @@ __pycache__
 dist
 build
 *.egg
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+instance/
+
+# Coverage reports
+.coverage
+htmlcov/
+
+# Local overrides
+docker-compose.everride.yml
+
+# IDE files
+.vscode/
+.idea/

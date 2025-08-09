@@ -28,11 +28,18 @@ def create_app(config_class=Config):
     from project.routes.profile import profile_bp
     from project.routes.user import user_bp
 
+    # Import Flask-RESTX API
+    from project.api import api_bp
+
+    # Register original blueprints (legacy routes)
     app.register_blueprint(auth_bp, url_prefix="/")
     app.register_blueprint(dosen_bp, url_prefix="/")
     app.register_blueprint(booking_bp, url_prefix="/")
     app.register_blueprint(user_bp, url_prefix="/")
     app.register_blueprint(profile_bp, url_prefix="/")
+
+    # Register Flask-RESTX API blueprint (new documented API)
+    app.register_blueprint(api_bp)
 
     with app.app_context():
         db.create_all()
