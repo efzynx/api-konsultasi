@@ -7,41 +7,43 @@ import tempfile
 from project import create_app, db
 from config import Config
 
+
 class TestConfig(Config):
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
-    SECRET_KEY = 'test-secret-key'
-    JWT_SECRET_KEY = 'test-jwt-secret'
+    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    SECRET_KEY = "test-secret-key"
+    JWT_SECRET_KEY = "test-jwt-secret"
+
 
 def test_api_documentation():
     """Test if Flask-RESTX API documentation is working"""
-    
+
     # Create app with test config
     app = create_app(TestConfig)
-    
+
     with app.test_client() as client:
         # Test if the API documentation is accessible
         print("🔍 Testing API Documentation Endpoints...")
-        
+
         # Test Swagger UI
-        response = client.get('/api/v1/docs/')
+        response = client.get("/api/v1/docs/")
         print(f"📋 Swagger UI (/api/v1/docs/): {response.status_code}")
-        
+
         # Test API spec
-        response = client.get('/api/v1/swagger.json')
+        response = client.get("/api/v1/swagger.json")
         print(f"📋 API Spec (/api/v1/swagger.json): {response.status_code}")
-        
+
         # Test health endpoint
-        response = client.get('/api/v1/auth/health')
+        response = client.get("/api/v1/auth/health")
         print(f"🏥 Health Check: {response.status_code}")
         if response.status_code == 200:
             print(f"   Response: {response.get_json()}")
-        
+
         # Test API endpoints structure
         print("\n📚 Available API Endpoints:")
         print("   🔐 Authentication: /api/v1/auth/")
         print("      - POST /register")
-        print("      - POST /login") 
+        print("      - POST /login")
         print("      - GET /health")
         print("   👨‍🏫 Dosen: /api/v1/dosen/")
         print("      - GET / (list all)")
@@ -63,22 +65,24 @@ def test_api_documentation():
         print("      - GET / (get profile)")
         print("      - PUT / (update profile)")
         print("      - PUT /change-password")
-        
+
         print("\n✅ Flask-RESTX API Documentation is working!")
         print(f"🌐 Access documentation at: http://localhost:5000/api/v1/docs/")
         print(f"📊 API specification at: http://localhost:5000/api/v1/swagger.json")
-        
+
         return True
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     print("🚀 Testing Flask-RESTX API Documentation Implementation")
     print("=" * 60)
-    
+
     try:
         test_api_documentation()
         print("\n🎉 SUCCESS: Flask-RESTX implementation is working correctly!")
-        
+
     except Exception as e:
         print(f"\n❌ ERROR: {str(e)}")
         import traceback
+
         traceback.print_exc()
