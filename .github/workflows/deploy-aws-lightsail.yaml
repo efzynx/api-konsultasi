@@ -119,13 +119,13 @@ jobs:
         echo "🐳 Building and deploying with Docker..."
         
         # Stop existing containers
-        docker compose down || docker-compose down || true
+        sudo docker compose down || sudo docker-compose down || true
         
         # Remove old images to free space
-        docker image prune -f || true
+        sudo docker image prune -f || true
         
         # Build and start new containers
-        docker compose up -d --build || docker-compose up -d --build
+        sudo docker compose up -d --build || sudo docker-compose up -d --build
         
         # Wait for services to be ready
         echo "⏳ Waiting for services to start..."
@@ -149,12 +149,12 @@ jobs:
         if [ \$attempt -gt \$max_attempts ]; then
           echo "⚠️  Health check failed after \$max_attempts attempts"
           echo "📋 Container logs:"
-          docker compose logs --tail=20
+          sudo docker compose logs --tail=20
         fi
         
         # Show running containers
         echo "📊 Current running containers:"
-        docker ps
+        sudo docker ps
         
         echo "🎉 Deployment to $ENVIRONMENT completed!"
         EOF
@@ -256,8 +256,8 @@ jobs:
         ENVEOF
         
         # Deploy
-        docker compose down || true
-        docker compose up -d --build
+        sudo docker compose down || true
+        sudo docker compose up -d --build
         
         # Health check
         sleep 30
@@ -296,8 +296,8 @@ jobs:
         ENVEOF
           
           # Deploy
-          docker compose down || true
-          docker compose up -d --build
+          sudo docker compose down || true
+          sudo docker compose up -d --build
           
           # Health check
           sleep 30
@@ -413,7 +413,7 @@ jobs:
           cd $SERVER_PATH
           
           # Stop current containers
-          docker compose down || docker-compose down || true
+          sudo docker compose down || sudo docker-compose down || true
           
           # Restore backup if exists
           if [ -d "backup" ]; then
@@ -423,7 +423,7 @@ jobs:
             cd current
             
             # Start backup version
-            docker compose up -d || docker-compose up -d || true
+            sudo docker compose up -d || sudo docker-compose up -d || true
             echo "✅ Rollback completed"
           else
             echo "⚠️  No backup found, manual intervention required"
