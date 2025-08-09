@@ -52,7 +52,6 @@ jobs:
     - name: Deploy to AWS Lightsail
       env:
         HOST: ${{ secrets.LIGHTSAIL_HOST }}
-        PORT: ${{ steps.env.outputs.port }}
         USERNAME: ${{ secrets.LIGHTSAIL_USERNAME }}
         SERVER_PATH: ${{ steps.env.outputs.server_path }}
         ENVIRONMENT: ${{ steps.env.outputs.environment }}
