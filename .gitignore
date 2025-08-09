@@ -1,27 +1,76 @@
+# Environment files
 .env
+.env.*
+!.env.*.template
 .venv
-__pycache__
+venv/
+
+# Python cache and compiled files
+__pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.egg-info
-dist
-build
+*.egg-info/
+dist/
+build/
 *.egg
 
 # Database files
+instance/
 *.db
 *.sqlite
 *.sqlite3
-instance/
 
 # Coverage reports
 .coverage
 htmlcov/
+.pytest_cache/
 
 # Local overrides
-docker-compose.everride.yml
+docker-compose.override.yml
+docker-compose.local.yml
 
 # IDE files
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Deployment secrets and keys
+github-secrets-*.txt
+deployment-secrets.txt
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Backup files
+*.bak
+*.backup
+backup/
+
+# Node modules (if any)
+node_modules/
+
+# Docker volumes
+docker-volumes/

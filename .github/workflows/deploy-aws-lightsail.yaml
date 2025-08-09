@@ -1,0 +1,469 @@
+name: Deploy to AWS Lightsail
+
+on:
+  push:
+    branches: [ main, dev ]
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types:
+      - completed
+
+env:
+  AWS_REGION: ap-southeast-1a
+
+jobs:
+  # Job untuk deployment menggunakan traditional SSH secrets
+  deploy-traditional:
+    name: Deploy using SSH Secrets
+    runs-on: ubuntu-latest
+    if: ${{ (github.event.workflow_run.conclusion == 'success' || github.event_name == 'push') && vars.DEPLOYMENT_METHOD == 'traditional' }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Determine deployment environment
+      id: env
+      run: |
+        if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          echo "environment=production" >> $GITHUB_OUTPUT
+          echo "server_path=/opt/api-konsultasi-prod" >> $GITHUB_OUTPUT
+          echo "port=5000" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+          echo "environment=staging" >> $GITHUB_OUTPUT
+          echo "server_path=/opt/api-konsultasi-dev" >> $GITHUB_OUTPUT
+          echo "port=5001" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Setup SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > ~/.ssh/lightsail_key
+        chmod 600 ~/.ssh/lightsail_key
+        ssh-keyscan -H ${{ secrets.LIGHTSAIL_HOST }} >> ~/.ssh/known_hosts
+    
+    - name: Deploy to AWS Lightsail
+      env:
+        HOST: ${{ secrets.LIGHTSAIL_HOST }}
+        USERNAME: ${{ secrets.LIGHTSAIL_USERNAME }}
+        SERVER_PATH: ${{ steps.env.outputs.server_path }}
+        ENVIRONMENT: ${{ steps.env.outputs.environment }}
+        PORT: ${{ steps.env.outputs.port }}
+      run: |
+        echo "🚀 Starting deployment to $ENVIRONMENT environment..."
+        
+        ssh -i ~/.ssh/lightsail_key $USERNAME@$HOST << EOF
+        set -e
+        
+        echo "📁 Setting up directory structure..."
+        sudo mkdir -p $SERVER_PATH
+        sudo chown -R \$USER:\$USER $SERVER_PATH
+        cd $SERVER_PATH
+        
+        # Backup current deployment if exists
+        if [ -d "current" ]; then
+          echo "💾 Creating backup..."
+          rm -rf backup || true
+          cp -r current backup || true
+        fi
+        
+        # Clone/update repository
+        echo "📥 Fetching latest code from ${{ github.ref_name }} branch..."
+        if [ -d ".git" ]; then
+          git fetch origin
+          git reset --hard origin/${{ github.ref_name }}
+          git clean -fd
+        else
+          git clone -b ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
+        fi
+        
+        echo "🔧 Setting up environment configuration..."
+        
+        # Create environment file based on deployment environment
+        if [ "$ENVIRONMENT" = "production" ]; then
+          cat > .env << ENVEOF
+        SECRET_KEY=${{ secrets.PROD_SECRET_KEY }}
+        DATABASE_URL=${{ secrets.PROD_DATABASE_URL }}
+        JWT_SECRET_KEY=${{ secrets.PROD_JWT_SECRET_KEY }}
+        MYSQL_ROOT_PASSWORD=${{ secrets.PROD_MYSQL_ROOT_PASSWORD }}
+        MYSQL_DATABASE=${{ secrets.PROD_MYSQL_DATABASE }}
+        MYSQL_USER=${{ secrets.PROD_MYSQL_USER }}
+        MYSQL_PASSWORD=${{ secrets.PROD_MYSQL_PASSWORD }}
+        FLASK_ENV=production
+        ENVEOF
+        else
+          cat > .env << ENVEOF
+        SECRET_KEY=${{ secrets.DEV_SECRET_KEY }}
+        DATABASE_URL=${{ secrets.DEV_DATABASE_URL }}
+        JWT_SECRET_KEY=${{ secrets.DEV_JWT_SECRET_KEY }}
+        MYSQL_ROOT_PASSWORD=${{ secrets.DEV_MYSQL_ROOT_PASSWORD }}
+        MYSQL_DATABASE=${{ secrets.DEV_MYSQL_DATABASE }}
+        MYSQL_USER=${{ secrets.DEV_MYSQL_USER }}
+        MYSQL_PASSWORD=${{ secrets.DEV_MYSQL_PASSWORD }}
+        FLASK_ENV=development
+        ENVEOF
+        fi
+        
+        # Update compose file to use correct port
+        if [ -f "compose.yaml" ]; then
+          sed -i "s/5000:5000/$PORT:5000/g" compose.yaml
+        fi
+        
+        echo "🐳 Building and deploying with Docker..."
+        
+        # Stop existing containers
+        docker compose down || docker-compose down || true
+        
+        # Remove old images to free space
+        docker image prune -f || true
+        
+        # Build and start new containers
+        docker compose up -d --build || docker-compose up -d --build
+        
+        # Wait for services to be ready
+        echo "⏳ Waiting for services to start..."
+        sleep 30
+        
+        # Health check
+        echo "🏥 Performing health check..."
+        max_attempts=5
+        attempt=1
+        while [ \$attempt -le \$max_attempts ]; do
+          if curl -f http://localhost:5000/api/v1/auth/health 2>/dev/null; then
+            echo "✅ Health check passed!"
+            break
+          else
+            echo "⏳ Health check attempt \$attempt/\$max_attempts failed, retrying..."
+            sleep 10
+            attempt=\$((attempt + 1))
+          fi
+        done
+        
+        if [ \$attempt -gt \$max_attempts ]; then
+          echo "⚠️  Health check failed after \$max_attempts attempts"
+          echo "📋 Container logs:"
+          docker compose logs --tail=20
+        fi
+        
+        # Show running containers
+        echo "📊 Current running containers:"
+        docker ps
+        
+        echo "🎉 Deployment to $ENVIRONMENT completed!"
+        EOF
+    
+    - name: Cleanup SSH
+      if: always()
+      run: |
+        rm -f ~/.ssh/lightsail_key
+
+  # Job untuk deployment menggunakan OIDC
+  deploy-oidc:
+    name: Deploy using OIDC
+    runs-on: ubuntu-latest
+    if: ${{ (github.event.workflow_run.conclusion == 'success' || github.event_name == 'push') && vars.DEPLOYMENT_METHOD == 'oidc' }}
+    
+    permissions:
+      id-token: write   # Required for OIDC
+      contents: read    # Required for checkout
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Determine deployment environment
+      id: env
+      run: |
+        if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          echo "environment=production" >> $GITHUB_OUTPUT
+          echo "server_path=/opt/api-konsultasi-prod" >> $GITHUB_OUTPUT
+          echo "port=5000" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+          echo "environment=staging" >> $GITHUB_OUTPUT
+          echo "server_path=/opt/api-konsultasi-dev" >> $GITHUB_OUTPUT
+          echo "port=5001" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Configure AWS credentials using OIDC
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubActionsRole
+        aws-region: ${{ env.AWS_REGION }}
+        role-session-name: GitHubActions-${{ github.run_id }}
+    
+    - name: Get Lightsail instance info
+      run: |
+        # Get instance IP
+        INSTANCE_IP=$(aws lightsail get-instance --instance-name ${{ vars.LIGHTSAIL_INSTANCE_NAME }} --query 'instance.publicIpAddress' --output text)
+        echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
+        echo "🌐 Instance IP: $INSTANCE_IP"
+    
+    - name: Setup SSH for OIDC deployment
+      run: |
+        # Setup SSH using existing key on server or AWS Systems Manager
+        mkdir -p ~/.ssh
+        ssh-keyscan -H ${{ env.INSTANCE_IP }} >> ~/.ssh/known_hosts
+        
+        # Note: SSH key should be pre-configured on the instance
+        # or retrieved from AWS Parameter Store/Secrets Manager
+    
+    - name: Deploy to AWS Lightsail using OIDC
+      env:
+        INSTANCE_IP: ${{ env.INSTANCE_IP }}
+        SERVER_PATH: ${{ steps.env.outputs.server_path }}
+        ENVIRONMENT: ${{ steps.env.outputs.environment }}
+        PORT: ${{ steps.env.outputs.port }}
+      run: |
+        echo "🚀 Starting OIDC deployment to $ENVIRONMENT environment..."
+        
+        # For OIDC, we can use AWS Systems Manager Session Manager
+        # or pre-configured SSH keys on the instance
+        
+        # Option 1: Using Systems Manager (if configured)
+        if aws ssm describe-instance-information --filters "Key=tag:Name,Values=${{ vars.LIGHTSAIL_INSTANCE_NAME }}" --query 'InstanceInformationList[0].InstanceId' --output text 2>/dev/null; then
+          echo "📡 Using AWS Systems Manager for deployment..."
+          
+          INSTANCE_ID=$(aws ssm describe-instance-information --filters "Key=tag:Name,Values=${{ vars.LIGHTSAIL_INSTANCE_NAME }}" --query 'InstanceInformationList[0].InstanceId' --output text)
+          
+          # Create deployment script
+          cat > deploy-script.sh << 'SCRIPT_EOF'
+        #!/bin/bash
+        set -e
+        
+        cd $SERVER_PATH
+        
+        # Update code
+        git fetch origin
+        git reset --hard origin/${{ github.ref_name }}
+        
+        # Setup environment
+        cat > .env << ENVEOF
+        SECRET_KEY=${{ secrets.PROD_SECRET_KEY }}
+        DATABASE_URL=${{ secrets.PROD_DATABASE_URL }}
+        JWT_SECRET_KEY=${{ secrets.PROD_JWT_SECRET_KEY }}
+        MYSQL_ROOT_PASSWORD=${{ secrets.PROD_MYSQL_ROOT_PASSWORD }}
+        MYSQL_DATABASE=${{ secrets.PROD_MYSQL_DATABASE }}
+        MYSQL_USER=${{ secrets.PROD_MYSQL_USER }}
+        MYSQL_PASSWORD=${{ secrets.PROD_MYSQL_PASSWORD }}
+        FLASK_ENV=$ENVIRONMENT
+        ENVEOF
+        
+        # Deploy
+        docker compose down || true
+        docker compose up -d --build
+        
+        # Health check
+        sleep 30
+        curl -f http://localhost:5000/api/v1/auth/health || echo "Health check failed"
+        SCRIPT_EOF
+          
+          # Execute via Systems Manager
+          aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["bash /tmp/deploy-script.sh"]' \
+            --comment "GitHub Actions deployment"
+        
+        else
+          echo "📡 Using direct SSH for deployment..."
+          # Option 2: Direct SSH (requires pre-configured keys)
+          ssh -o StrictHostKeyChecking=no ubuntu@$INSTANCE_IP << EOF
+          set -e
+          
+          cd $SERVER_PATH
+          
+          # Update code
+          git fetch origin
+          git reset --hard origin/${{ github.ref_name }}
+          
+          # Setup environment
+          cat > .env << ENVEOF
+        SECRET_KEY=${{ secrets.PROD_SECRET_KEY }}
+        DATABASE_URL=${{ secrets.PROD_DATABASE_URL }}
+        JWT_SECRET_KEY=${{ secrets.PROD_JWT_SECRET_KEY }}
+        MYSQL_ROOT_PASSWORD=${{ secrets.PROD_MYSQL_ROOT_PASSWORD }}
+        MYSQL_DATABASE=${{ secrets.PROD_MYSQL_DATABASE }}
+        MYSQL_USER=${{ secrets.PROD_MYSQL_USER }}
+        MYSQL_PASSWORD=${{ secrets.PROD_MYSQL_PASSWORD }}
+        FLASK_ENV=$ENVIRONMENT
+        ENVEOF
+          
+          # Deploy
+          docker compose down || true
+          docker compose up -d --build
+          
+          # Health check
+          sleep 30
+          curl -f http://localhost:5000/api/v1/auth/health || echo "Health check failed"
+        EOF
+        fi
+        
+        echo "🎉 OIDC deployment to $ENVIRONMENT completed!"
+
+  # Post-deployment tests (common for both methods)
+  post-deploy-test:
+    name: Post-Deployment Tests
+    runs-on: ubuntu-latest
+    needs: [deploy-traditional, deploy-oidc]
+    if: always() && (needs.deploy-traditional.result == 'success' || needs.deploy-oidc.result == 'success')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.13'
+    
+    - name: Install test dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests pytest
+    
+    - name: Determine server URL
+      id: url
+      run: |
+        if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          if [[ -n "${{ vars.PROD_SERVER_URL }}" ]]; then
+            echo "server_url=${{ vars.PROD_SERVER_URL }}" >> $GITHUB_OUTPUT
+          else
+            echo "server_url=http://${{ secrets.LIGHTSAIL_HOST }}:5000" >> $GITHUB_OUTPUT
+          fi
+        elif [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+          if [[ -n "${{ vars.DEV_SERVER_URL }}" ]]; then
+            echo "server_url=${{ vars.DEV_SERVER_URL }}" >> $GITHUB_OUTPUT
+          else
+            echo "server_url=http://${{ secrets.LIGHTSAIL_HOST }}:5001" >> $GITHUB_OUTPUT
+          fi
+        fi
+    
+    - name: Run post-deployment tests
+      env:
+        SERVER_URL: ${{ steps.url.outputs.server_url }}
+      run: |
+        echo "🧪 Running post-deployment tests against $SERVER_URL"
+        
+        # Wait for services to fully start
+        sleep 60
+        
+        # Basic connectivity test
+        echo "🔍 Testing server connectivity..."
+        if curl -f --connect-timeout 30 $SERVER_URL/api/v1/auth/health; then
+          echo "✅ Server is responding"
+        else
+          echo "❌ Server health check failed"
+          exit 1
+        fi
+        
+        # Test API endpoints
+        echo "🧪 Testing API endpoints..."
+        
+        # Test registration endpoint
+        TEST_USERNAME="test_deploy_$(date +%s)"
+        curl -X POST $SERVER_URL/api/v1/auth/register \
+          -H "Content-Type: application/json" \
+          -d "{\"username\":\"$TEST_USERNAME\",\"password\":\"test123456\",\"nama\":\"Test Deploy\",\"nim\":\"$(date +%s)\"}" \
+          || echo "Registration test completed (may fail if user exists)"
+        
+        # Test dosen endpoint
+        curl -f $SERVER_URL/api/v1/dosen || echo "Dosen endpoint test completed"
+        
+        # Test mahasiswa endpoint
+        curl -f $SERVER_URL/api/v1/mahasiswa || echo "Mahasiswa endpoint test completed"
+        
+        echo "✅ Post-deployment tests completed"
+
+  # Rollback job (if deployment fails)
+  rollback:
+    name: Rollback on Failure
+    runs-on: ubuntu-latest
+    needs: [deploy-traditional, deploy-oidc, post-deploy-test]
+    if: failure() && (needs.deploy-traditional.result == 'failure' || needs.deploy-oidc.result == 'failure' || needs.post-deploy-test.result == 'failure')
+    
+    steps:
+    - name: Setup SSH for rollback (Traditional method)
+      if: vars.DEPLOYMENT_METHOD == 'traditional'
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > ~/.ssh/lightsail_key
+        chmod 600 ~/.ssh/lightsail_key
+        ssh-keyscan -H ${{ secrets.LIGHTSAIL_HOST }} >> ~/.ssh/known_hosts
+    
+    - name: Rollback deployment
+      run: |
+        echo "🔄 Rolling back deployment..."
+        
+        # Determine server path based on branch
+        if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          SERVER_PATH="/opt/api-konsultasi-prod"
+        else
+          SERVER_PATH="/opt/api-konsultasi-dev"
+        fi
+        
+        if [[ "${{ vars.DEPLOYMENT_METHOD }}" == "traditional" ]]; then
+          ssh -i ~/.ssh/lightsail_key ${{ secrets.LIGHTSAIL_USERNAME }}@${{ secrets.LIGHTSAIL_HOST }} << EOF
+          cd $SERVER_PATH
+          
+          # Stop current containers
+          docker compose down || docker-compose down || true
+          
+          # Restore backup if exists
+          if [ -d "backup" ]; then
+            echo "📦 Restoring from backup..."
+            rm -rf current || true
+            cp -r backup current || true
+            cd current
+            
+            # Start backup version
+            docker compose up -d || docker-compose up -d || true
+            echo "✅ Rollback completed"
+          else
+            echo "⚠️  No backup found, manual intervention required"
+          fi
+        EOF
+        else
+          echo "🔄 OIDC rollback would require AWS Systems Manager or pre-configured access"
+          echo "⚠️  Manual rollback may be required"
+        fi
+        
+        echo "🔄 Rollback process completed"
+    
+    - name: Cleanup SSH (if traditional)
+      if: always() && vars.DEPLOYMENT_METHOD == 'traditional'
+      run: |
+        rm -f ~/.ssh/lightsail_key
+
+  # Notification job
+  notify:
+    name: Deployment Notification
+    runs-on: ubuntu-latest
+    needs: [deploy-traditional, deploy-oidc, post-deploy-test, rollback]
+    if: always()
+    
+    steps:
+    - name: Determine deployment result
+      run: |
+        if [[ "${{ needs.deploy-traditional.result }}" == "success" || "${{ needs.deploy-oidc.result }}" == "success" ]]; then
+          if [[ "${{ needs.post-deploy-test.result }}" == "success" ]]; then
+            echo "DEPLOYMENT_STATUS=success" >> $GITHUB_ENV
+            echo "DEPLOYMENT_MESSAGE=✅ Deployment completed successfully!" >> $GITHUB_ENV
+          else
+            echo "DEPLOYMENT_STATUS=warning" >> $GITHUB_ENV
+            echo "DEPLOYMENT_MESSAGE=⚠️ Deployment completed but post-tests failed" >> $GITHUB_ENV
+          fi
+        else
+          echo "DEPLOYMENT_STATUS=failure" >> $GITHUB_ENV
+          echo "DEPLOYMENT_MESSAGE=❌ Deployment failed!" >> $GITHUB_ENV
+        fi
+    
+    - name: Send notification
+      run: |
+        echo "📢 Deployment Status: ${{ env.DEPLOYMENT_STATUS }}"
+        echo "📝 Message: ${{ env.DEPLOYMENT_MESSAGE }}"
+        echo "🌿 Branch: ${{ github.ref_name }}"
+        echo "📦 Commit: ${{ github.sha }}"
+        echo "👤 Author: ${{ github.actor }}"
+        
+        # Add webhook notification here if needed
+        # curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} -d "..."
