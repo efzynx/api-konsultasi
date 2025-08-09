@@ -3,11 +3,12 @@ Authentication API endpoints with Flask-RESTX documentation
 """
 
 from flask import request
-from flask_restx import Namespace, Resource, fields
 from flask_jwt_extended import create_access_token
-from project.models import User
+from flask_restx import Namespace, Resource, fields
+
 from project import db
 from project.api_models_simple import get_models
+from project.models import User
 
 # Create namespace
 auth_ns = Namespace("auth", description="Authentication operations")

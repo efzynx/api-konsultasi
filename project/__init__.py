@@ -22,14 +22,13 @@ def create_app(config_class=Config):
     jwt.init_app(app)  # <-- 2. Hubungkan JWTManager dengan aplikasi Anda
 
     # Import dan daftarkan Blueprint (rute) dari modul lain
+    # Import Flask-RESTX API
+    from project.api import api_bp
     from project.routes.auth import auth_bp
     from project.routes.booking import booking_bp
     from project.routes.dosen import dosen_bp
     from project.routes.profile import profile_bp
     from project.routes.user import user_bp
-
-    # Import Flask-RESTX API
-    from project.api import api_bp
 
     # Register original blueprints (legacy routes)
     app.register_blueprint(auth_bp, url_prefix="/")

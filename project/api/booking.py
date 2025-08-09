@@ -3,11 +3,12 @@ Booking API endpoints with Flask-RESTX documentation
 """
 
 from flask import request
+from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
-from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
-from project.models import Booking, Dosen, User
+
 from project import db
 from project.api_models_simple import get_models
+from project.models import Booking, Dosen, User
 
 # Create namespace
 booking_ns = Namespace("booking", description="Booking management operations")

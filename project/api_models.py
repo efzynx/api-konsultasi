@@ -2,7 +2,7 @@
 API Models and Schemas for Flask-RESTX Documentation
 """
 
-from flask_restx import fields, Model
+from flask_restx import Model, fields
 
 # Base response models
 success_response = {

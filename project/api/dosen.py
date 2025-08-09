@@ -4,9 +4,10 @@ Dosen API endpoints with Flask-RESTX documentation
 
 from flask import request
 from flask_restx import Namespace, Resource
-from project.models import Dosen, User, Booking
+
 from project import db
 from project.api_models_simple import get_models
+from project.models import Booking, Dosen, User
 
 # Create namespace
 dosen_ns = Namespace("dosen", description="Dosen management operations")

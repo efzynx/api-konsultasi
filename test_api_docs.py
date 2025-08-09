@@ -4,8 +4,9 @@ Test script for Flask-RESTX API Documentation
 
 import os
 import tempfile
-from project import create_app, db
+
 from config import Config
+from project import create_app, db
 
 
 class TestConfig(Config):

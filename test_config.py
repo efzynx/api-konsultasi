@@ -4,6 +4,7 @@ Uses SQLite instead of MySQL for testing purposes
 """
 
 import os
+
 from config import Config
 
 

@@ -2,8 +2,8 @@
 Flask-RESTX API Configuration
 """
 
-from flask_restx import Api
 from flask import Blueprint
+from flask_restx import Api
 
 # Create API blueprint
 api_bp = Blueprint("api", __name__, url_prefix="/api/v1")
@@ -30,10 +30,10 @@ api = Api(
 
 # Import and register namespaces
 from project.api.auth import auth_ns
-from project.api.dosen import dosen_ns
 from project.api.booking import booking_ns
-from project.api.user import user_ns
+from project.api.dosen import dosen_ns
 from project.api.profile import profile_ns
+from project.api.user import user_ns
 
 api.add_namespace(auth_ns, path="/auth")
 api.add_namespace(dosen_ns, path="/dosen")

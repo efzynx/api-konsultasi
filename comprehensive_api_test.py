@@ -3,10 +3,11 @@ Comprehensive API Testing Script for Flask-RESTX Implementation
 Tests all endpoints, authentication, CRUD operations, and edge cases
 """
 
-import requests
 import json
 import time
 from datetime import datetime
+
+import requests
 
 
 class APITester:

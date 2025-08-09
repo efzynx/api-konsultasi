@@ -3,13 +3,15 @@ Comprehensive API Unit Tests using pytest and Flask test client
 Tests all endpoints, authentication, CRUD operations, and edge cases
 """
 
-import pytest
 import json
-from datetime import datetime, date, time
-from project import create_app, db
-from project.models import User, Dosen, Booking
-from test_config import TestConfig
+from datetime import date, datetime, time
+
+import pytest
 from flask_jwt_extended import create_access_token
+
+from project import create_app, db
+from project.models import Booking, Dosen, User
+from test_config import TestConfig
 
 
 @pytest.fixture
