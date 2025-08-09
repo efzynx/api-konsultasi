@@ -111,10 +111,11 @@ jobs:
         ENVEOF
         fi
         
-        # Update compose file to use correct port
-        if [ -f "compose.yaml" ]; then
-          sed -i "s/5000:5000/$PORT:5000/g" compose.yaml
-        fi
+        # # Update compose file to use correct port
+        # if [ -f "compose.yaml" ]; then
+        #   sed -i "s/5000:5000/$PORT:5000/g" compose.yaml
+        # fi
+        echo "PORT=${{ steps.env.outputs.port }}" >> .env
         
         echo "🐳 Building and deploying with Docker..."
         
