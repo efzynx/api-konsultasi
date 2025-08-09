@@ -1,24 +1,30 @@
 services:
-  web: # Ganti nama service
+  web:
     build:
       context: .
     ports:
       - "${PORT}:5000"
     env_file:
       - .env
-    command: gunicorn --bind 0.0.0.0:5000 --env-file .env "wsgi:app"
-    depends_on: # Hapus comment
-      - db
-  db: # Hapus comment
-    image: mysql:8.0 # Ganti image
+    command: gunicorn --bind 0.0.0.0:5000 "wsgi:app"
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    image: mysql:8.0
     restart: always
-    environment: # Tambahkan environment
+    environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    volumes: # Hapus comment
+    volumes:
       - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-volumes: # Hapus comment
+volumes:
   db-data:
