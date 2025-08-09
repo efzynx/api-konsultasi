@@ -96,6 +96,7 @@ Anda bisa menjalankan proyek ini dengan dua cara: secara lokal untuk development
 
 ```
 /
+├── documentation/        # Folder berisi semua dokumentasi proyek (.md files)
 ├── .env                  # File konfigurasi (tidak di-commit)
 ├── .gitignore            # Mengabaikan file yang tidak perlu
 ├── compose.yaml          # Konfigurasi Docker Compose untuk produksi
@@ -116,6 +117,8 @@ Anda bisa menjalankan proyek ini dengan dua cara: secara lokal untuk development
 ---
 
 ## Dokumentasi API
+
+Dokumentasi lengkap proyek ini dapat ditemukan di folder `documentation/`.
 
 Base URL: `http://127.0.0.1:5000` (Lokal) atau `https://api.domainanda.com` (Produksi)
 
