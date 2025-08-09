@@ -132,19 +132,19 @@ jobs:
         sleep 30
         
         # Health check
-        # echo "🏥 Performing health check..."
-        # max_attempts=5
-        # attempt=1
-        # while [ \$attempt -le \$max_attempts ]; do
-        #   if curl -f http://${{ secrets.LIGHTSAIL_HOST }}:5000/api/v1/auth/health 2>/dev/null; then
-        #     echo "✅ Health check passed!"
-        #     break
-        #   else
-        #     echo "⏳ Health check attempt \$attempt/\$max_attempts failed, retrying..."
-        #     sleep 10
-        #     attempt=\$((attempt + 1))
-        #   fi
-        # done
+        echo "🏥 Performing health check..."
+        max_attempts=5
+        attempt=1
+        while [ \$attempt -le \$max_attempts ]; do
+          if curl -f http://127.0.0.1:5000/api/v1/auth/health 2>/dev/null; then
+            echo "✅ Health check passed!"
+            break
+          else
+            echo "⏳ Health check attempt \$attempt/\$max_attempts failed, retrying..."
+            sleep 10
+            attempt=\$((attempt + 1))
+          fi
+        done
         
         if [ \$attempt -gt \$max_attempts ]; then
           echo "⚠️  Health check failed after \$max_attempts attempts"
