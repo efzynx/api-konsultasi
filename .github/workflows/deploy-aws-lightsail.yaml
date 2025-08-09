@@ -136,7 +136,7 @@ jobs:
         max_attempts=5
         attempt=1
         while [ \$attempt -le \$max_attempts ]; do
-          if curl -f http://localhost:5000/api/v1/auth/health 2>/dev/null; then
+          if curl -f http://${{ secrets.LIGHTSAIL_HOST }}:5000/api/v1/auth/health 2>/dev/null; then
             echo "✅ Health check passed!"
             break
           else
@@ -261,7 +261,7 @@ jobs:
         
         # Health check
         sleep 30
-        curl -f http://localhost:5000/api/v1/auth/health || echo "Health check failed"
+        curl -f http://${{ secrets.LIGHTSAIL_HOST }}:5000/api/v1/auth/health || echo "Health check failed"
         SCRIPT_EOF
           
           # Execute via Systems Manager
@@ -301,7 +301,7 @@ jobs:
           
           # Health check
           sleep 30
-          curl -f http://localhost:5000/api/v1/auth/health || echo "Health check failed"
+          curl -f http://${{ secrets.LIGHTSAIL_HOST }}:5000/api/v1/auth/health || echo "Health check failed"
         EOF
         fi
         
